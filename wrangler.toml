@@ -1,0 +1,10 @@
+name = "esper-api"
+main = "src/index.js"
+compatibility_date = "2026-11-06"
+
+# Static manifests and news live in public/. The Worker runs for every request
+# so it can add cache and security headers, serve /healthz, and log.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
