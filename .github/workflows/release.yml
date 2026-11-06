@@ -54,5 +54,11 @@ jobs:
           $tag = "${{ github.event.release.tag_name }}"
           if (-not $tag) { $tag = "${{ inputs.tag }}" }
           $channel = "${{ inputs.channel }}"
-          if (-not $channel) { $channel = "beta" }
+          if (-not $channel) {
+            if ("${{ github.event.release.prerelease }}" -eq "true") {
+              $channel = "nightly"
+            } else {
+              $channel = "beta"
+            }
+          }
           ./ci/release.ps1 -Tag $tag -Channel $channel

@@ -10,7 +10,8 @@ Workers Static Assets.
 | --- | --- | --- |
 | `GET /` | service identity JSON | `no-store` |
 | `GET /healthz` | liveness probe, returns `ok` | `no-store` |
-| `GET /v1/latest.json` | update manifest envelope | `public, max-age=300` |
+| `GET /v1/latest.json` | beta update manifest | `public, max-age=300` |
+| `GET /v1/nightly.json` | nightly update manifest | `public, max-age=60` |
 | `GET /v1/news.json` | news feed | `public, max-age=60` |
 | anything else | files under `public/` | `public, max-age=60` |
 
@@ -110,15 +111,23 @@ self-contained — keep them in sync when flags change.
 1. Create a release with a tag such as `v0.1.32`.
 2. Attach one `.zip` payload (for example the archive produced by
    `esper-api\release.ps1`).
-3. Publish. The workflow downloads the asset, signs
-   `public/v1/latest.json`, verifies it, carries the live news feed forward,
-   and runs `wrangler deploy`.
+3. Publish. The workflow downloads the asset, signs the channel manifest,
+   verifies it, carries the live news feed and the other channels forward, and
+   runs `wrangler deploy`.
+
+Channels map to files the launcher follows:
+
+| Channel | File | Trigger |
+| --- | --- | --- |
+| `beta` | `public/v1/latest.json` | normal release |
+| `nightly` | `public/v1/nightly.json` | release marked **pre-release** |
+| `stable` | `public/v1/stable.json` | manual run (reserved) |
 
 You can also run it manually: Actions → **Release manifest** → Run workflow
 with the tag and channel.
 
-The build number defaults to the workflow run number, the channel to `beta`,
-and the manifest expires after 90 days.
+The build number defaults to the workflow run number, and the manifest expires
+after 90 days.
 
 ### Local dry run
 

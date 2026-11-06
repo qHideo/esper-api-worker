@@ -13,7 +13,7 @@ param(
     [string]$Payload = "",
     [string]$AssetUrl = "",
     [string]$SeedFile = "",
-    [string]$Out = "public/v1/latest.json",
+    [string]$Out = "",
     [string]$NotesUrl = "https://esper-api.esper-api-worker.workers.dev/v1/news.json",
     [switch]$NoDeploy
 )
@@ -40,6 +40,15 @@ if ($Build -le 0) {
     if ($env:GITHUB_RUN_NUMBER) { $Build = [int64]$env:GITHUB_RUN_NUMBER }
     else { $Build = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
 }
+
+# Each channel has its own manifest; the launcher follows one at a time.
+$manifests = @{
+    "beta"    = "public/v1/latest.json"
+    "nightly" = "public/v1/nightly.json"
+    "stable"  = "public/v1/stable.json"
+}
+if (-not $manifests.ContainsKey($Channel)) { throw "Unknown channel '$Channel'." }
+if (-not $Out) { $Out = $manifests[$Channel] }
 
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("esper-release-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force $temp | Out-Null
@@ -120,6 +129,23 @@ try {
             )
         } catch {
             Write-Warning "Could not preserve live news; deploying the repository copy: $($_.Exception.Message)"
+        }
+
+        # Deploying one channel must not delete the others' published manifests.
+        $liveBase = "https://esper-api.esper-api-worker.workers.dev/v1"
+        foreach ($name in @("latest.json", "nightly.json", "stable.json")) {
+            $target = Join-Path (Join-Path $root "public/v1") $name
+            if ($target -eq $outPath) { continue }
+            try {
+                $text = (Invoke-WebRequest -Uri "$liveBase/$name" -UseBasicParsing -TimeoutSec 20).Content
+                [System.IO.File]::WriteAllText(
+                    $target,
+                    $text,
+                    (New-Object System.Text.UTF8Encoding($false))
+                )
+            } catch {
+                Write-Warning "Could not preserve live $name."
+            }
         }
 
         & npx --yes wrangler@4 deploy
